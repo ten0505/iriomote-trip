@@ -580,7 +580,7 @@ function renderTable(){
   const m = document.getElementById('main');
   if(dates.length===0){ m.innerHTML = legendHTML()+emptyHTML(); return; }
   // 表示する時間帯（予定の開始・終了に合わせて自動で上下に拡張）
-  let minH=8, maxH=19;
+  let minH=5, maxH=22;  // 表示時間 5:00〜22:00（範囲外の予定があれば自動で広がる）
   state.events.forEach(e=>{
     const s=toMin(e.start); if(s==null) return;
     const en=toMin(e.end)||s+60;
