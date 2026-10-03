@@ -384,7 +384,16 @@ const SEED_EVENTS = [
 
   {id:'x14', type:'transport', title:'上原港発 フェリー', date:'2026-10-09', start:'14:30', end:'',
    mode:'船', from:'上原港', to:'', resv:'', note:'夕食なし(n/a)。天気欄(Excel): 40%'},
+
+  // 2026-10-03 PCで追加された予定（全端末に配布するため組込み。idはPC側と同じ）
+  {id:'musgf3m4qz37', type:'transport', title:'千葉ニュータウン⇒成田空港', date:'2026-10-04', start:'05:53', end:'06:17',
+   from:'千葉ニュータウン中央', to:'成田空港第1ターミナル'},
+  {id:'musfsn83qf03', type:'transport', title:'Peach Aviation flight 527', date:'2026-10-04', start:'07:30', end:'11:05'},
+  {id:'musg1tyb9m9n', type:'act', title:'石垣港→上原港', date:'2026-10-04', start:'13:30', end:'14:30'},
+  {id:'musfvi4uigan', type:'transport', title:'Peach Aviation flight 530', date:'2026-10-09', start:'17:30', end:'20:45'},
 ];
+// 組込み予定の版。上げると、既に使っている端末にも「まだ無い組込み予定」だけを追加する（既存の予定は変更しない）
+const SEED_VERSION = 2;
 
 function blankState(){
   const today = TRIP_START;   // 旅行初日
@@ -395,7 +404,7 @@ function blankState(){
       {id:'p1', name:'浩一', role:'夫', icon:'👨', items:[]},
       {id:'p2', name:'美輪', role:'妻', icon:'👩', items:[]},
     ],
-    _rev:0, _client:CLIENT_ID, _start:today
+    _rev:0, _client:CLIENT_ID, _start:today, _seedVer:SEED_VERSION
   };
 }
 
@@ -413,6 +422,12 @@ function load(){
 function migrate(s){
   s.tripName = s.tripName || TRIP_NAME;
   s.events = s.events || [];
+  // 新しい版の組込み予定のうち、この端末に無いものだけ追加
+  if((s._seedVer||1) < SEED_VERSION){
+    const have=new Set(s.events.map(e=>e.id));
+    SEED_EVENTS.forEach(e=>{ if(!have.has(e.id)) s.events.push({...e}); });
+    s._seedVer = SEED_VERSION;
+  }
   // 開始時刻に「13:30～14:30」のような範囲が入っていたら開始・終了に分ける
   s.events.forEach(e=>{
     if(e.start && !/^\d{2}:\d{2}$/.test(e.start)){
