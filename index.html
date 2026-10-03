@@ -413,6 +413,14 @@ function load(){
 function migrate(s){
   s.tripName = s.tripName || TRIP_NAME;
   s.events = s.events || [];
+  // 開始時刻に「13:30～14:30」のような範囲が入っていたら開始・終了に分ける
+  s.events.forEach(e=>{
+    if(e.start && !/^\d{2}:\d{2}$/.test(e.start)){
+      const tr=splitTimeRange(e.start);
+      e.start=tr.start; if(tr.end && !e.end) e.end=tr.end;
+    }
+    if(e.end && !/^\d{2}:\d{2}$/.test(e.end)) e.end=splitTimeRange(e.end).start;
+  });
   s.participants = s.participants || blankState().participants;
   s.participants.forEach(p=>p.items = p.items || []);
   s._rev = s._rev || 0;
@@ -521,7 +529,16 @@ function fmtDate(d){
 }
 function isWeekend(d){ const g=new Date(d+'T00:00:00').getDay(); return g===0||g===6; }
 const ymd=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
-function toMin(t){ if(!t) return null; const [h,m]=t.split(':'); return (+h)*60+(+m); }
+function toMin(t){
+  const m=String(t||'').match(/(\d{1,2}):(\d{2})/);   // 不正な値は null（表示が崩れないように）
+  return m ? (+m[1])*60+(+m[2]) : null;
+}
+/* 「13:30～14:30」のような範囲を開始・終了に分ける */
+function splitTimeRange(t){
+  const m=String(t||'').match(/(\d{1,2}:\d{2})\s*(?:[～~〜\-–ー]\s*(\d{1,2}:\d{2}))?/);
+  const pad=x=>x? x.padStart(5,'0') : '';
+  return m ? {start:pad(m[1]), end:pad(m[2])} : {start:'', end:''};
+}
 /* その予定が占める日付（ホテルはチェックイン日〜チェックアウト日の各日） */
 function itemDates(e){
   if(e.type==='hotel' && e.date && e.codate && e.codate>e.date){
@@ -1034,10 +1051,15 @@ function importText(){
     if(extractDate(toks[0])){ rest=toks.slice(1); }
     else if(d){ continue; } // 日付だけの行（区切り）→スキップ
     else if(!/^\d{1,2}:\d{2}/.test(toks[0])){ continue; } // 時刻でも日付でも始まらない散文はスキップ
-    let time=''; if(rest[0] && /^\d{1,2}:\d{2}/.test(rest[0])){ time=rest[0]; rest=rest.slice(1); }
+    let time='', endTime='';
+    if(rest[0] && /^\d{1,2}:\d{2}/.test(rest[0])){
+      const tr=splitTimeRange(rest[0]); time=tr.start; endTime=tr.end; rest=rest.slice(1);
+      // 「13:30 ～ 14:30」のように区切りが空白で分かれている場合
+      if(!endTime && rest[0] && /^[～~〜\-–ー]$/.test(rest[0]) && /^\d{1,2}:\d{2}$/.test(rest[1]||'')){ endTime=rest[1]; rest=rest.slice(2); }
+    }
     const title=rest.join(' ').trim();
     if(!title || !(curDate)) continue;
-    state.events.push({id:uid(), type:detectType(line), title, date:curDate, start:time});
+    state.events.push({id:uid(), type:detectType(line), title, date:curDate, start:time, end:endTime});
     added++; used[i]=true;
   }
 
